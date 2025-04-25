@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Traveling Salesman Problem</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <script src="https://unpkg.com/jquery@3.6.0/dist/jquery.min.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.css" />
+    <script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.js"></script>
+</head>
+<body>
+    <div class="container">
+        <h1>Traveling Salesman Problem</h1>
+        
+        <!-- Source city input -->
+        <label for="source">Select Source City:</label>
+        <input type="text" id="source" placeholder="Enter Source City" list="cities">
+        <datalist id="cities">
+            {% for city in cities %}
+            <option value="{{ city }}">{{ city }}</option>
+            {% endfor %}
+        </datalist>
+
+        <!-- Multiple city selection with checkboxes -->
+        <label>Select Cities to Visit:</label>
+        <div id="checkboxes">
+            {% for city in cities %}
+            <div>
+                <input type="checkbox" id="{{ city }}" name="cities" value="{{ city }}">
+                <label for="{{ city }}">{{ city }}</label>
+            </div>
+            {% endfor %}
+        </div>
+
+        <!-- Button to find the route -->
+        <button id="find-route">Find Best Route</button>
+
+        <!-- Result display -->
+        <div id="result"></div>
+
+        <!-- Map display -->
+        <div id="map" style="height: 500px; width: 100%;"></div>
+    </div>
+
+    <script>
+        let map;  // Declare map variable outside so it can be accessed globally
+        let routingControl;  // Store the routing control so we can remove it before adding a new one
+    
+        $(document).ready(function() {
+            $('#find-route').click(function() {
+                const source = $('#source').val();
+                const cities = [];
+                $("input[name='cities']:checked").each(function() {
+                    cities.push($(this).val());
+                });
+    
+                // AJAX request to find the best route
+                $.ajax({
+                    type: "POST",
+                    url: "/find_route",
+                    contentType: "application/json",
+                    data: JSON.stringify({ source: source, cities: cities }),
+                    success: function(response) {
+                        const tour = response.tour;
+                        const distance = response.distance;
+    
+                        // Display the result
+                        $('#result').html(`Best tour: ${tour.join(', ')}<br>Total distance: ${distance.toFixed(2)} km`);
+    
+                        // Plot the route on the map
+                        plotRoute(tour);
+                    }
+                });
+            });
+    
+            // Function to initialize the map
+            function initializeMap() {
+                // Initialize the map centered over India
+                map = L.map('map').setView([20.5937, 78.9629], 5);
+    
+                // Add OpenStreetMap tile layer
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                }).addTo(map);
+            }
+    
+            // Function to plot the route on the map
+            function plotRoute(tour) {
+                const cityCoords = {
+                    "Pune": [18.5214, 73.8567],
+                    "Mumbai": [19.0760, 72.8777],
+                    "Ahmedabad": [23.0225, 72.5714],
+                    "Kolkata": [22.5726, 88.3639],
+                    "Chennai": [13.0827, 80.2707],
+                    "Delhi": [28.6139, 77.2090],
+                    "Jaipur": [26.9124, 75.7873],
+                    "Hyderabad": [17.3850, 78.4867],
+                    "Bangalore": [12.9716, 77.5946],
+                    "Lucknow": [26.8467, 80.9462]
+                };
+    
+                // If a route is already plotted, remove it
+                if (routingControl) {
+                    map.removeControl(routingControl);
+                }
+    
+                // Create waypoints for the new route
+                const waypoints = tour.map(city => L.latLng(cityCoords[city][0], cityCoords[city][1]));
+    
+                // Add the new route to the map
+                routingControl = L.Routing.control({
+                    waypoints: waypoints,
+                    createMarker: function(i, wp) {
+                        return L.marker(wp.latLng).bindPopup(tour[i]);
+                    },
+                    lineOptions: {
+                        styles: [{ color: 'blue', weight: 4 }]
+                    }
+                }).addTo(map);
+            }
+    
+            // Initialize the map when the page loads
+            initializeMap();
+        });
+    </script>
+       
+</body>
+</html>
